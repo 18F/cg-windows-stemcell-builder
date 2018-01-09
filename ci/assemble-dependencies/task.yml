@@ -5,14 +5,10 @@ image_resource: {type: docker-image, source: {repository: pivotalgreenhouse/ci}}
 
 inputs:
 - name: config
-- name: version
+- name: lgpo
 
 outputs:
-- name: base-amis
-
-params:
-  BASE_AMI:
-  BASE_AMI_NAME:
+- name: windows-stemcell-dependencies
 
 run:
-  path: config/ci/collect-base-amis/run
+  path: config/ci/assemble-dependencies/run

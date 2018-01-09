@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+
+require 'aws-sdk'
+require 'json'
+require 'tempfile'
+
+module DeleteVms
+  class Aws
+    def self.delete
+      puts "Deleting AWS vms"
+      regions = ["us-gov-west-1"]
+      regions.each do |region|
+        ec2 = ::Aws::EC2::Client.new(region: region)
+        reservations = ec2.describe_instances()
+        instances = reservations.map { |r| r.reservations.map(&:instances).flatten.map { |x| x.instance_id } }.flatten
+        if instances.any?
+          puts "Deleting #{instances.to_s} in region #{region}"
+          ec2.terminate_instances({
+            dry_run: false,
+            instance_ids: instances
+          })
+        end
+      end
+    end
+  end
+end
+
+DeleteVms::Aws.delete

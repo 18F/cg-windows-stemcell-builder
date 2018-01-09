@@ -31,6 +31,8 @@ if base_ami_name == ''
   abort 'Define BASE_AMI_NAME environment variable'
 end
 
+vpc_name = ENV['VPC_NAME']
+
 region_names = ["us-gov-west-1"]
 
 region_infos = []
@@ -42,6 +44,7 @@ region_names.each do |region_name|
   region_info['base_ami'] = ami_id
 
   vpcs = JSON.parse(`aws ec2 describe-vpcs \
+              --filter "Name=tag:Name,Values=#{vpc_name}" \
               --region #{region_name}`)
   vpc_id = vpcs['Vpcs'].first["VpcId"]
   if vpc_id.nil? || vpc_id.empty?
@@ -61,8 +64,8 @@ region_names.each do |region_name|
   sg_name = 'packer-aws-stemcell'
   sgs = JSON.parse(`aws ec2 describe-security-groups \
               --region #{region_name} \
-              --group-names #{sg_name} \
-              --filters "Name=vpc-id,Values=#{vpc_id}"`)
+              --filters "Name=vpc-id,Values=#{vpc_id}" \
+                        "Name=group-name,Values=#{sg_name}"`)
   sg_id = sgs["SecurityGroups"].first["GroupId"]
   if sg_id.nil? || sg_id.empty?
     raise "Error: no security group found with name '#{sg_name}' for vpc '#{vpc_id}' in region '#{region_name}'"

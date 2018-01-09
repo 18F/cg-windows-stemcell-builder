@@ -31,11 +31,6 @@ resources:
   source:
     branch: ((STEMCELL_BUILDER_BRANCH))
     uri: https://github.com/cloudfoundry-incubator/bosh-windows-stemcell-builder.git
-- name: windows-stemcell-dependencies
-  type: git
-  source:
-    branch: master
-    uri: git@github.com:pivotal-cf/windows-stemcell-dependencies.git
 
 # github releases
 - name: openssh-release
@@ -51,38 +46,27 @@ resources:
   source:
     bucket: ((ROOT_BUCKET))
     key: 2012R2/versions/main
+    region_name: us-gov-west-1
     initial_version: 1200.0.0
 - name: aws-stemcell-version
   type: semver-iam
   source:
     bucket: ((ROOT_BUCKET))
     key: 2012R2/versions/aws
+    region_name: us-gov-west-1
     initial_version: 1200.0.0
-
-# locks
-- name: aws-lock
-  type: pool
-  source:
-    branch: master
-    pool: ((AWS_LOCK))
-    private_key: ((BOSH-WINDOWS-LOCKS-CI_KEY))
-    uri: git@github.com:pivotal-cf-experimental/Bosh-Windows-Locks
 
 # s3 buckets
 - name: aws-regional
-  type: s3
+  type: s3-iam
   source:
     bucket: ((ROOT_BUCKET))
     regexp: ((BASE_FOLDER_NAME))/untested/aws/inputs/light-bosh-stemcell-(.*)-aws-xen-hvm-windows2012R2-go_agent-((AWS_PACKER_REGION)).tgz
-    access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
-    secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 - name: packer-output-ami
-  type: s3
+  type: s3-iam
   source:
     bucket: ((ROOT_BUCKET))
     regexp: ((BASE_FOLDER_NAME))/untested/aws/inputs/packer-output-ami-(.*).txt
-    access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
-    secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 - name: aws-2012-untested
   type: s3
   source:
@@ -101,13 +85,20 @@ resources:
   type: s3-iam
   source:
     bucket: bosh-windows-stemcells-production
-    region_name: us-gov-west-1
     regexp: light-bosh-stemcell-(.*)-aws-xen-hvm-windows2012R2-go_agent.tgz
+    region_name: us-gov-west-1
 - name: base-amis-win2012r2
   type: s3-iam
   source:
     bucket: ((ROOT_BUCKET))
     regexp: 2012R2/untested/aws/inputs/base-amis-windows2012R2-(.*).json
+    region_name: us-gov-west-1
+- name: lgpo
+  type: s3-iam
+  source:
+    bucket: ((ROOT_BUCKET))
+    regexp: LGPO-(.*).zip
+    region_name: us-gov-west-1
 
 jobs:
 - name: test-stemcell-builder
@@ -131,7 +122,6 @@ jobs:
     - get: config
     - get: stemcell-builder
       passed: [test-stemcell-builder]
-    - get: windows-stemcell-dependencies
     - get: version
       resource: stemcells-main-version
       params:
@@ -143,12 +133,13 @@ jobs:
     params:
       file: version/number
   - task: collect-win2012r2-amis
-    file: config/collect-base-amis/task.yml
+    file: config/ci/collect-base-amis/task.yml
     output_mapping: { base-amis: win2012r2-amis }
     tags: [iaas]
     params:
       BASE_AMI: windows2012R2
       BASE_AMI_NAME: ((BASE_AMI_NAME))
+      VPC_NAME: ((VPC_NAME))
   - put: base-amis-win2012r2
     params:
       file: win2012r2-amis/base-amis-windows2012R2-*.json
@@ -156,12 +147,10 @@ jobs:
 - name: create-aws
   serial: true
   plan:
-  - put: aws-lock
-    params:
-      acquire: true
   - do:
     - aggregate:
       - get: ci
+      - get: config
       - get: stemcell-builder
         passed: [build]
       - get: base-amis
@@ -171,17 +160,18 @@ jobs:
         resource: aws-stemcell-version
         passed: [build]
         trigger: true
-      - get: windows-stemcell-dependencies
+      - get: lgpo
       - get: main-version
         resource: stemcells-main-version
         passed: [build]
       - get: sshd
         resource: openssh-release
-        version: { tag: ((OPEN_SSH_VERSION)) }
     - put: version
       resource: aws-stemcell-version
       params:
         pre: build
+    - task: assemble-dependencies
+      file: config/ci/assemble-dependencies/task.yml
     - task: create-packer-ci-key
       privileged: true
       config:
@@ -200,6 +190,7 @@ jobs:
       timeout: 1h30m
       attempts: 3
       file: ci/bosh-windows-stemcell-builder/create-aws-stemcell/task.yml
+      tags: [iaas]
       params:
         OS_VERSION: windows2012R2
         REGION: ((AWS_PACKER_REGION))
@@ -216,13 +207,8 @@ jobs:
     ensure:
       do:
       - task: delete-orphan-vms
-        file: ci/delete-vms/task.yml
-        params:
-          AWS_ACCESS_KEY_ID: ((BOSH_WINDOWS_AWS_STEMCELLS_ACCESS_KEY_ID))
-          AWS_SECRET_ACCESS_KEY: ((BOSH_WINDOWS_AWS_STEMCELLS_SECRET_ACCESS_KEY))
-      - put: aws-lock
-        params:
-          release: aws-lock
+        file: config/ci/delete-vms/task.yml
+        tags: [iaas]
 
 - name: copy-regions-aws
   serial: true

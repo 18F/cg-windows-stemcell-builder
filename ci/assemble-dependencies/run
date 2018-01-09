@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -eux
+
+unzip lgpo/LGPO-*.zip
+
+cp LGPO.exe windows-stemcell-dependencies
