@@ -204,11 +204,6 @@ jobs:
       - put: packer-output-ami
         params:
           file: amis/packer-output-ami-*.txt
-    ensure:
-      do:
-      - task: delete-orphan-vms
-        file: config/ci/delete-vms/task.yml
-        tags: [iaas]
 
 - name: copy-regions-aws
   serial: true
