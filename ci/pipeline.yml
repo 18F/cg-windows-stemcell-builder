@@ -1,14 +1,3 @@
-resource_types:
-- name: semver-iam
-  type: docker-image
-  source:
-    repository: governmentpaas/semver-resource
-
-- name: s3-iam
-  type: docker-image
-  source:
-    repository: 18fgsa/s3-resource
-
 resources:
 # repos
 - name: ci
@@ -21,11 +10,6 @@ resources:
   source:
     branch: ((CONFIG_BRANCH))
     uri: https://github.com/18F/cg-windows-stemcell-builder.git
-- name: stemcell-builder-develop
-  type: git
-  source:
-    branch: develop
-    uri: https://github.com/cloudfoundry-incubator/bosh-windows-stemcell-builder.git
 - name: stemcell-builder
   type: git
   source:
@@ -42,36 +26,47 @@ resources:
 
 # versions
 - name: stemcells-main-version
-  type: semver-iam
+  type: semver
   source:
     bucket: ((ROOT_BUCKET))
     key: 2012R2/versions/main
     region_name: us-gov-west-1
     initial_version: 1200.0.0
+    access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
+    secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 - name: aws-stemcell-version
-  type: semver-iam
+  type: semver
   source:
     bucket: ((ROOT_BUCKET))
     key: 2012R2/versions/aws
     region_name: us-gov-west-1
     initial_version: 1200.0.0
+    access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
+    secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 
 # s3 buckets
 - name: aws-regional
-  type: s3-iam
+  type: s3
   source:
     bucket: ((ROOT_BUCKET))
     regexp: ((BASE_FOLDER_NAME))/untested/aws/inputs/light-bosh-stemcell-(.*)-aws-xen-hvm-windows2012R2-go_agent-((AWS_PACKER_REGION)).tgz
+    region_name: us-gov-west-1
+    access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
+    secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 - name: packer-output-ami
-  type: s3-iam
+  type: s3
   source:
     bucket: ((ROOT_BUCKET))
     regexp: ((BASE_FOLDER_NAME))/untested/aws/inputs/packer-output-ami-(.*).txt
+    region_name: us-gov-west-1
+    access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
+    secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 - name: aws-2012-untested
   type: s3
   source:
     bucket: ((ROOT_BUCKET))
     regexp: ((BASE_FOLDER_NAME))/untested/aws/light-bosh-stemcell-(.*)-aws-xen-hvm-windows2012R2-go_agent.tgz
+    region_name: us-gov-west-1
     access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
     secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 - name: aws-2012-tested
@@ -79,26 +74,33 @@ resources:
   source:
     bucket: ((ROOT_BUCKET))
     regexp: 2012R2/tested/aws/light-bosh-stemcell-(.*)-aws-xen-hvm-windows2012R2-go_agent.tgz
+    region_name: us-gov-west-1
     access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
     secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 - name: aws-stemcell-final
-  type: s3-iam
+  type: s3
   source:
     bucket: bosh-windows-stemcells-production
     regexp: light-bosh-stemcell-(.*)-aws-xen-hvm-windows2012R2-go_agent.tgz
     region_name: us-gov-west-1
+    access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
+    secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 - name: base-amis-win2012r2
-  type: s3-iam
+  type: s3
   source:
     bucket: ((ROOT_BUCKET))
     regexp: 2012R2/untested/aws/inputs/base-amis-windows2012R2-(.*).json
     region_name: us-gov-west-1
+    access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
+    secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 - name: lgpo
-  type: s3-iam
+  type: s3
   source:
     bucket: ((ROOT_BUCKET))
     regexp: LGPO-(.*).zip
     region_name: us-gov-west-1
+    access_key_id: ((BOSH_WINDOWS_BOSH_CI_S3_ACCESS_KEY_ID))
+    secret_access_key: ((BOSH_WINDOWS_BOSH_CI_S3_SECRET_ACCESS_KEY))
 
 jobs:
 - name: test-stemcell-builder
@@ -106,13 +108,9 @@ jobs:
   plan:
   - aggregate:
     - get: ci
-    - get: stemcell-builder-develop
-      trigger: true
-    - get: stemcell-builder-master
-      resource: stemcell-builder
+    - get: stemcell-builder
   - task: test-stemcell-builder
     file: ci/bosh-windows-stemcell-builder/rspec/task.yml
-    input_mapping: {stemcell-builder: stemcell-builder-develop}
 
 - name: build
   serial: true

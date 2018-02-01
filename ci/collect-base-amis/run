@@ -32,7 +32,7 @@ if base_ami_name == ''
 end
 
 vpc_name = ENV['VPC_NAME']
-sg_name = ENV['SG_NAME']
+sg_name = ENV['SG_NAME'] || ''
 
 region_names = ["us-gov-west-1"]
 
