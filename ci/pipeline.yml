@@ -135,10 +135,11 @@ jobs:
   - task: collect-win2012r2-amis
     file: config/ci/collect-base-amis/task.yml
     output_mapping: { base-amis: win2012r2-amis }
-    tags: [iaas]
     params:
       BASE_AMI: windows2012R2
       BASE_AMI_NAME: ((BASE_AMI_NAME))
+      AWS_ACCESS_KEY_ID: ((BOSH_WINDOWS_AWS_READ_VPC_EC2_ACCESS_KEY_ID))
+      AWS_SECRET_ACCESS_KEY: ((BOSH_WINDOWS_AWS_READ_VPC_EC2_SECRET_ACCESS_KEY))
       VPC_NAME: ((VPC_NAME))
   - put: base-amis-win2012r2
     params:
@@ -190,7 +191,6 @@ jobs:
       timeout: 1h30m
       attempts: 3
       file: ci/bosh-windows-stemcell-builder/create-aws-stemcell/task.yml
-      tags: [iaas]
       params:
         OS_VERSION: windows2012R2
         REGION: ((AWS_PACKER_REGION))
